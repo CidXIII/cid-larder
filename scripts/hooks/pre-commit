@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# 匹配「键=真实值」，空占位符（如 BILI_SESSDATA=）不触发
+patterns=(
+  'SESSDATA=[A-Za-z0-9%]'
+  'bili_jct=[A-Za-z0-9]'
+  'DedeUserID=[0-9]'
+  'sk-[A-Za-z0-9]{16,}'
+  'Bearer [A-Za-z0-9._-]{16,}'
+  '13[0-9]{9}'
+)
+
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$staged" ] && exit 0
+
+fail=0
+while IFS= read -r f; do
+  [ -f "$f" ] || continue
+  for p in "${patterns[@]}"; do
+    if grep -Eq "$p" "$f" 2>/dev/null; then
+      echo "BLOCKED: $f matches /$p/"
+      fail=1
+    fi
+  done
+done <<< "$staged"
+
+if [ "$fail" -ne 0 ]; then
+  echo
+  echo "Possible secret found. Commit refused."
+  echo "Fix the file, or override with: git commit --no-verify"
+  exit 1
+fi

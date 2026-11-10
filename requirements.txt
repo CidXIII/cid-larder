@@ -1,0 +1,9 @@
+# Pinned to the versions this was last run on, not to "whatever is newest".
+# Bump deliberately and re-run the flow; several of these change behaviour
+# between minor versions (httpx timeouts, uvicorn reload, starlette bodies).
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+httpx==0.28.1
+pydantic==2.14.2
+pydantic-settings==2.16.2
+qrcode==8.2

@@ -1,0 +1,2531 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Cid-Larder</title>
+<script>
+  // Runs before the first paint: the first frame already has the right colours.
+  // Only the starting point is decided here; every later change re-reads storage.
+  (function () {
+    var KEY = "cid-larder-theme";
+    var saved = null;
+    try { saved = localStorage.getItem(KEY); } catch (e) {}
+    var mode = saved === "light" || saved === "dark" ? saved : "auto";
+    var dark = mode === "dark" ||
+      (mode === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    var root = document.documentElement;
+    root.setAttribute("data-theme-mode", mode);
+    root.setAttribute("data-theme", dark ? "dark" : "light");
+  })();
+</script>
+<style>
+  :root {
+    color-scheme: light;
+
+    --bg: #f6f6f7;
+    --side: #fafafa;
+    --card: #ffffff;
+    --panel: #fafafa;
+    --subtle: #f1f1f3;
+    --ink: #18181b;
+    --muted: #71717a;
+    --faint: #a1a1aa;
+    --line: #e4e4e7;
+    --line-soft: #f4f4f5;
+
+    --accent: #2563eb;
+    --accent-ink: #185fa5;
+    --accent-soft: #eff6ff;
+    --accent-line: #bfdbfe;
+    --accent-fg: #ffffff;
+    --ring: #dbeafe;
+
+    --ok: #16a34a;
+    --ok-ink: #15803d;
+    --ok-soft: #dcfce7;
+    --ok-line: #bbf7d0;
+
+    --warn: #92400e;
+    --warn-soft: #fffbeb;
+    --warn-line: #fde68a;
+    --warn-dot: #d97706;
+
+    --bad: #dc2626;
+    --bad-ink: #991b1b;
+    --bad-soft: #fef2f2;
+    --bad-line: #fecaca;
+    --danger: #dc2626;
+    --danger-hover: #b91c1c;
+    --danger-off: #fca5a5;
+
+    --off: #d4d4d8;
+    --bar-fill: #c7d2fe;
+    --overlay: rgba(24, 24, 27, .45);
+    --shadow: rgba(24, 24, 27, .10);
+    --shadow-modal: rgba(0, 0, 0, .18);
+    --halo-idle: 113, 113, 122;
+    --halo-ok: 22, 163, 74;
+    --halo-warn: 217, 119, 6;
+  }
+
+  /* Chosen by the switch, or by the system while the switch is on auto. */
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0f0f11;
+    --side: #141417;
+    --card: #1a1a1e;
+    --panel: #202025;
+    --subtle: #26262b;
+    --ink: #e9e9ec;
+    --muted: #a1a1aa;
+    --faint: #82828b;
+    --line: #2c2c33;
+    --line-soft: #26262b;
+
+    --accent: #3c6fd2;
+    --accent-ink: #93c5fd;
+    --accent-soft: #1c2b47;
+    --accent-line: #2f4a76;
+    --accent-fg: #ffffff;
+    --ring: #1e3a5f;
+
+    --ok: #4ade80;
+    --ok-ink: #4ade80;
+    --ok-soft: #14351f;
+    --ok-line: #1f5138;
+
+    --warn: #fbbf24;
+    --warn-soft: #2a2113;
+    --warn-line: #4a3a16;
+    --warn-dot: #f59e0b;
+
+    --bad: #f87171;
+    --bad-ink: #fca5a5;
+    --bad-soft: #2e1618;
+    --bad-line: #5a2626;
+    --danger: #c02b2b;
+    --danger-hover: #a02222;
+    --danger-off: #6b2b2b;
+
+    --off: #3a3a42;
+    --bar-fill: #4a5b9e;
+    --overlay: rgba(0, 0, 0, .62);
+    --shadow: rgba(0, 0, 0, .55);
+    --shadow-modal: rgba(0, 0, 0, .60);
+    --halo-idle: 161, 161, 170;
+    --halo-ok: 74, 222, 128;
+    --halo-warn: 251, 191, 36;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink);
+    font: 14px/1.6 -apple-system, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  }
+  header { margin-bottom: 22px; }
+  h1 { margin: 0; font-size: 20px; letter-spacing: .2px; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 22px; margin-bottom: 14px;
+  }
+  .step { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+  .step .n {
+    width: 20px; height: 20px; border-radius: 50%; background: var(--subtle);
+    color: var(--muted); font-size: 12px; display: grid; place-items: center;
+  }
+  .step.done .n { background: var(--ok-soft); color: var(--ok-ink); }
+  .step h2 { margin: 0; font-size: 14px; font-weight: 600; }
+  .step .hint { margin-left: auto; font-size: 12px; color: var(--muted); }
+
+  .platforms { display: flex; gap: 8px; width: 100%; max-width: 520px; }
+  .chip {
+    flex: 1; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
+    background: var(--card); font-size: 13px; text-align: left; cursor: pointer;
+    font-family: inherit; color: var(--ink); transition: border-color .12s, background .12s;
+  }
+  .chip:hover:not(.on) { border-color: var(--line-strong, var(--line)); }
+  .chip:disabled { cursor: default; opacity: .7; }
+  .chip.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); font-weight: 600; }
+  .chip.off { color: var(--faint); }
+  .chip small { display: block; font-weight: 400; font-size: 11px; color: var(--muted); }
+
+  .cookie-box {
+    width: 100%; box-sizing: border-box; resize: vertical; min-height: 76px;
+    border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+    background: var(--card); color: var(--ink); font-size: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .cookie-box:focus { outline: 2px solid var(--ring); border-color: var(--accent); }
+
+  .qr { display: flex; gap: 20px; align-items: center; }
+  .qr .box {
+    width: 176px; height: 176px; border: 1px solid var(--line); border-radius: 10px;
+    padding: 8px; background: #fff; flex: none;  /* the QR is black on nothing: it needs paper */
+    display: grid; place-items: center;
+  }
+  .qr .box svg { width: 100%; height: 100%; display: block; }
+  .qr .meta { font-size: 13px; color: var(--muted); }
+  .qr .meta strong { display: block; color: var(--ink); font-size: 14px; margin-bottom: 4px; }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); margin-right: 6px; }
+  .dot.live { background: var(--accent); animation: pulse 1.4s infinite; }
+  .dot.ok { background: var(--ok); }
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+
+  button.primary {
+    width: 100%; border: 0; border-radius: 8px; padding: 11px 14px; font-size: 14px;
+    background: var(--accent); color: var(--accent-fg); cursor: pointer; font-weight: 600;
+  }
+  button.primary:disabled { background: var(--off); color: var(--muted); cursor: not-allowed; }
+  button.ghost {
+    border: 1px solid var(--line); background: var(--card); border-radius: 8px;
+    padding: 7px 12px; font-size: 12px; cursor: pointer; color: var(--ink);
+  }
+
+  .bar { height: 6px; background: var(--subtle); border-radius: 999px; overflow: hidden; margin: 14px 0 8px; }
+  .bar > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+  .bar.indet > i { width: 35%; animation: slide 1.2s infinite; }
+  @keyframes slide { 0% { margin-left: -35% } 100% { margin-left: 100% } }
+  .status-line { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); gap: 12px; }
+  .result { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); }
+  .result-head { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+  .result-head .tick {
+    width: 18px; height: 18px; border-radius: 50%; background: var(--ok-soft); color: var(--ok-ink);
+    font-size: 11px; display: grid; place-items: center;
+  }
+  .result-head b { font-size: 14px; }
+  .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 10px; text-align: center; }
+  .stat b { display: block; font-size: 22px; font-weight: 650; letter-spacing: -.4px; line-height: 1.2; }
+  .stat span { font-size: 11px; color: var(--muted); }
+
+  .group-title { font-size: 11px; color: var(--muted); letter-spacing: .5px; margin: 0 0 4px; }
+  .item-row {
+    display: grid; grid-template-columns: 1fr auto; align-items: center;
+    gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line-soft);
+  }
+  .item-row.expandable { cursor: pointer; }
+  .item-row.expandable:hover .nm { color: var(--accent-ink); }
+  .item-row .nm::before {
+    content: "▸"; display: inline-block; width: 12px; color: var(--faint);
+    font-size: 10px; transition: transform .15s;
+  }
+  .item-row.open .nm::before { transform: rotate(90deg); }
+
+  /* A rule down the left is the whole difference between "inside this row"
+     and "another row", now that rows are plain text. */
+  .sub-list {
+    margin: 2px 0 10px 12px; padding: 0 0 4px 12px;
+    border-left: 2px solid var(--line);
+  }
+  /* Ten rows tall, the rest behind a scrollbar: one long folder must not
+     push the page three screens down. */
+  .sub-list ul { margin: 0; padding: 0; list-style: none; max-height: 300px; overflow-y: auto; }
+  .sub-list li {
+    display: flex; gap: 10px; align-items: center; height: 30px; padding: 0 0;
+    border-bottom: 1px solid var(--line-soft); font-size: 12px;
+  }
+  .sub-list li:last-child { border-bottom: 0; }
+  .sub-list .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sub-list .u { color: var(--muted); font-size: 11px; white-space: nowrap; }
+  .sub-list .score {
+    color: var(--faint); font-size: 11px; white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .sub-list .more { color: var(--muted); font-size: 11px; padding: 6px 0 0; }
+  .tax-group {
+    font-size: 10.5px; color: var(--faint); margin: 12px 0 2px;
+    letter-spacing: .3px;
+  }
+  .tax-group:first-child { margin-top: 0; }
+  .tax-row { cursor: pointer; }
+  .tax-row .nm-text, .tax-row .def-text {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .tax-row .nm-text { font-size: 12.5px; }
+  .tax-row .def-text { font-size: 11.5px; color: var(--muted); }
+  .tax-row .nm-text::before {
+    content: "▸"; display: inline-block; width: 12px; color: var(--faint);
+    font-size: 10px; transition: transform .15s;
+  }
+  .tax-row.open .nm-text::before { transform: rotate(90deg); }
+  .tax-row.parking {
+    margin-top: 0; padding-top: 12px; border-top: 1px dashed var(--line);
+    border-bottom: 0;
+  }
+  .tax-row.parking .nm-text { font-weight: 600; }
+  .item-row:last-child { border-bottom: 0; }
+  .item-row .nm { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item-row .ct { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  /* A checkbox, not a ×: this only decides whether the folder takes part in
+     the arrange step. Nothing is removed, here or on Bilibili. */
+  .item-row.lib-row { grid-template-columns: 15px 1fr auto; }
+  .item-row .pick {
+    width: 13px; height: 13px; margin: 0; cursor: pointer;
+    accent-color: var(--accent);
+  }
+  /* Not taking part: still listed, still clickable, just quieter. */
+  .item-row.kept-out .nm, .item-row.kept-out .ct { color: var(--faint); }
+  .err { color: var(--bad); font-size: 13px; margin-top: 10px; }
+  .head-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .chip-model {
+    border: 1px solid var(--line); background: var(--card); border-radius: 999px;
+    padding: 5px 12px; font-size: 12px; color: var(--muted); cursor: pointer;
+  }
+  .chip-model.warn { border-color: var(--warn-line); background: var(--warn-soft); color: var(--warn); }
+  .chip-model.ready { border-color: var(--ok-line); background: var(--ok-soft); color: var(--ok-ink); }
+
+  .overlay {
+    position: fixed; inset: 0; background: var(--overlay);
+    display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 20;
+  }
+  .modal {
+    background: var(--card); border-radius: 14px; width: 100%; max-width: 520px;
+    max-height: 88vh; overflow: auto; box-shadow: 0 20px 50px var(--shadow-modal);
+  }
+  .modal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 20px 12px; border-bottom: 1px solid var(--line);
+  }
+  .modal-head b { font-size: 15px; }
+  .modal-head .x {
+    border: 0; background: none; font-size: 20px; line-height: 1; color: var(--muted); cursor: pointer;
+  }
+  .modal-head .x:disabled { color: var(--faint); cursor: default; }
+  .modal-body { padding: 16px 20px; }
+  .field { display: grid; grid-template-columns: 76px 1fr; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .field label { font-size: 12px; color: var(--muted); }
+  .field select, .field input {
+    width: 100%; border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 10px; font-size: 13px; color: var(--ink); background: var(--card);
+  }
+  .field input:focus, .field select:focus { outline: 2px solid var(--ring); border-color: var(--accent); }
+  .test-row { display: flex; align-items: center; gap: 10px; margin: 0 0 18px 86px; }
+  .test-row .result { font-size: 12px; }
+  .test-row .result.ok { color: var(--ok); }
+  .test-row .result.bad { color: var(--bad); }
+  .modal-foot { padding: 14px 20px 18px; border-top: 1px solid var(--line); }
+  .modal-foot .warn { font-size: 11.5px; color: var(--warn); background: var(--warn-soft);
+    border: 1px solid var(--warn-line); border-radius: 8px; padding: 9px 11px; margin-bottom: 12px; }
+
+  .muted-note { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+  .tax-row {
+    display: grid; grid-template-columns: 128px 1fr 32px 24px;
+    gap: 6px; align-items: center;
+    padding: 8px 0; border-bottom: 1px solid var(--line-soft);
+  }
+  .tax-row:last-child { border-bottom: 0; }
+  .tax-row input {
+    width: 100%; border: 1px solid transparent; border-radius: 8px;
+    padding: 7px 9px; font-size: 13px; background: transparent; color: var(--ink);
+  }
+  .tax-row input:hover { border-color: var(--line); background: var(--card); }
+  .tax-row input:focus { border-color: var(--accent); background: var(--card); }
+  .tax-row input.name { font-weight: 600; }
+  .tax-row .del {
+    border: 1px solid transparent; background: transparent; color: var(--faint);
+    border-radius: 6px; width: 24px; height: 24px; cursor: pointer; line-height: 1;
+  }
+  .tax-row:hover .del { border-color: var(--line); background: var(--card); color: var(--muted); }
+  .tax-count { margin: 2px 0 10px; }
+  .tax-count-row { display: flex; align-items: center; gap: 8px; }
+  .tax-count .lbl { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+  .tax-count input[type="range"] {
+    flex: 1; min-width: 60px; height: 18px; margin: 0; accent-color: var(--accent);
+    cursor: pointer;
+  }
+  .tax-count b {
+    font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums;
+    min-width: 18px; text-align: right;
+  }
+  /* In flow, not floating: a hint that covers the button under it is worse
+     than a hint that shifts it down a few pixels. */
+  .tax-count .bubble {
+    position: relative; margin-top: 7px; padding: 6px 9px; border-radius: 8px;
+    font-size: 11px; line-height: 1.55;
+    background: var(--warn-soft); border: 1px solid var(--warn-line); color: var(--warn);
+  }
+  .tax-count .bubble::before {
+    content: ""; position: absolute; top: -5px; left: 18px; width: 8px; height: 8px;
+    background: var(--warn-soft); border-left: 1px solid var(--warn-line);
+    border-top: 1px solid var(--warn-line); transform: rotate(45deg);
+  }
+
+  .tax-actions { display: flex; gap: 10px; margin-top: 14px; }
+  .tax-actions .primary { flex: 1; }
+  .tax-actions .ghost { flex: none; }
+  /* One row: regenerate on the left, run on the right. */
+  #tax-actions { justify-content: space-between; }
+  #tax-actions .primary { flex: none; width: auto; }
+  button.ghost:disabled { color: var(--faint); cursor: default; }
+
+  .field.with-action { grid-template-columns: 76px 1fr auto; }
+  .field.with-action .mini-btn {
+    border: 1px solid var(--line); background: var(--card); color: var(--ink);
+    border-radius: 8px; padding: 8px 10px; font-size: 12px; cursor: pointer; white-space: nowrap;
+  }
+  .field.with-action .mini-btn:hover { background: var(--panel); }
+  .field.with-action .mini-btn:disabled { color: var(--muted); cursor: default; }
+
+  .combo { position: relative; }
+  .combo input { padding-right: 26px; }
+  .combo .caret {
+    position: absolute; right: 0; top: 0; bottom: 0; width: 26px;
+    border: 0; background: none; color: var(--muted); cursor: pointer;
+    font-size: 9px; line-height: 1;
+  }
+  .combo-list {
+    display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    max-height: 190px; overflow-y: auto; margin: 0; padding: 4px; list-style: none;
+    background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+    box-shadow: 0 10px 28px var(--shadow); z-index: 30;
+  }
+  .combo-list.open { display: block; }
+  .combo-list li {
+    padding: 7px 9px; font-size: 12.5px; border-radius: 6px; cursor: pointer;
+    color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .combo-list li:hover, .combo-list li.active { background: var(--subtle); }
+  .combo-list li.empty { color: var(--muted); cursor: default; font-size: 12px; }
+  .combo-list li.empty:hover { background: none; }
+
+  .danger {
+    background: var(--danger); color: var(--accent-fg); border: 0; border-radius: 8px;
+    padding: 10px 18px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .danger:hover { background: var(--danger-hover); }
+  .danger:disabled { background: var(--danger-off); cursor: default; }
+  .tax-actions .danger { flex: none; }
+  .confirm-warn {
+    background: var(--bad-soft); border: 1px solid var(--bad-line); color: var(--bad-ink);
+    border-radius: 8px; padding: 11px 13px; font-size: 12.5px; line-height: 1.7;
+  }
+  .confirm-warn b { display: block; margin-bottom: 4px; font-size: 13px; }
+
+  .step-nav {
+    position: fixed; top: 50%; transform: translateY(-50%); z-index: 9;
+    width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center;
+    border: 1px solid var(--line); background: var(--card); color: var(--muted);
+    cursor: pointer; box-shadow: 0 2px 10px var(--shadow);
+  }
+  .step-nav:hover:not(:disabled) { color: var(--ink); border-color: var(--accent); }
+  /* A plan just exists; the way out of this step is that arrow. */
+  .step-nav.nudge {
+    border-color: var(--accent); color: var(--accent-ink);
+    animation: nudge 1s ease-in-out 3;
+  }
+  @keyframes nudge {
+    0%, 100% { box-shadow: 0 2px 10px var(--shadow); }
+    50% { box-shadow: 0 0 0 6px var(--accent-soft); }
+  }
+  /* A plan is sitting there and the arrow is the way out of this step. It
+     stays lit for as long as that is true, instead of blinking three times
+     and going quiet again. */
+  .step-nav.ready {
+    width: 40px; height: 40px; border-color: var(--accent);
+    background: var(--accent-soft); color: var(--accent-ink);
+    animation: breathe 2.8s ease-in-out infinite;
+  }
+  @keyframes breathe {
+    0%, 100% { box-shadow: 0 0 0 0 var(--accent-soft); }
+    50% { box-shadow: 0 0 0 7px var(--accent-soft); }
+  }
+  .step-nav:disabled { opacity: .3; cursor: default; }
+  .step-nav svg { width: 15px; height: 15px; }
+  /* Beside the content column, which is centred in what is left of 200px. */
+  #step-prev { left: calc(50% - 444px); }
+  #step-next { left: calc(50% + 606px); }
+  @media (max-width: 1300px) { .step-nav { display: none; } }
+
+  .ghost.with-icon { display: inline-flex; align-items: center; gap: 6px; }
+  .ghost.with-icon svg { width: 13px; height: 13px; }
+  .ghost.with-icon.busy svg { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+
+  /* The title stays at the top; everything under it sits in the middle of
+     whatever is left, so these three steps do not hug the ceiling. */
+  [data-page="platform"].page.on,
+  [data-page="login"].page.on,
+  [data-page="collect"].page.on {
+    display: flex; flex-direction: column; flex: 1; min-height: 0;
+  }
+  .page-body {
+    flex: 1; min-height: 0; display: flex; flex-direction: column;
+    align-items: center; overflow-y: auto;
+  }
+  /* Centred, not merely centred vertically: a 400px block in a 980px column
+     reads as a mistake. A card gives the emptiness an edge. */
+  .step-card {
+    /* flex:0 0 auto — the ::before/::after spacers are flex:1, and without
+       this the card is shrunk to a third of the column and its form spills. */
+    flex: 0 0 auto; width: 100%; max-width: 560px; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 12px; padding: 22px 24px;
+    box-sizing: border-box;
+  }
+
+  .step-card .platforms { width: 100%; max-width: none; }
+  .step-card .qr { justify-content: center; }
+  .step-card .primary { display: block; margin: 0 auto; }
+  .step-card #collect-area { width: 100%; }
+  .page-body::before, .page-body::after { content: ""; flex: 1 0 0; }
+  .page-body > * { flex: 0 0 auto; }
+  .page-body .primary { max-width: 320px; }
+
+  .page-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .page-usage {
+    font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .page-usage b { color: var(--ink); font-weight: 600; }
+  .page-usage:empty { display: none; }
+  .warn-note { color: var(--warn); }
+
+  .banner {
+    background: var(--warn-soft); border: 1px solid var(--warn-line); color: var(--warn);
+    border-radius: 10px; padding: 12px 14px; font-size: 13px; margin-bottom: 14px;
+  }
+  footer { color: var(--faint); font-size: 12px; text-align: center; margin-top: 18px; }
+  .app { display: grid; grid-template-columns: 200px 1fr; min-height: 100vh; }
+  .side {
+    background: var(--side); border-right: 1px solid var(--line);
+    padding: 20px 12px; display: flex; flex-direction: column;
+  }
+  .brand b { font-size: 13px; }
+  .brand span { display: block; font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+  .side-label { font-size: 10.5px; color: var(--faint); margin: 24px 0 6px 10px; }
+  #nav button {
+    display: flex; justify-content: space-between; align-items: center; width: 100%;
+    border: 0; background: none; padding: 8px 10px; border-radius: 7px;
+    font-size: 12.5px; color: var(--muted); cursor: pointer; text-align: left;
+    font-family: inherit;
+  }
+  #nav button em { font-style: normal; font-size: 10px; color: var(--faint); }
+  #nav button:hover { background: var(--subtle); }
+  #nav button.on { background: var(--accent-soft); color: var(--accent-ink); font-weight: 500; }
+  #nav button.on em { color: var(--accent-ink); }
+  .side-foot { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--line); }
+  .side-foot .side-label { margin: 0 0 8px; }
+  .side-foot .chip-model {
+    display: flex; align-items: center; gap: 7px; width: 100%;
+    padding: 9px 10px; border-radius: 8px; text-align: left; font-size: 12px;
+  }
+  .side-foot .chip-model .dot {
+    margin: 0; flex: none; --halo: var(--halo-idle);
+    animation: breathe 2.8s ease-in-out infinite;
+  }
+  .side-foot .chip-model.ready .dot { background: var(--ok); --halo: var(--halo-ok); }
+  .side-foot .chip-model.warn .dot { background: var(--warn-dot); --halo: var(--halo-warn); }
+  .side-foot .chip-model .model-name {
+    flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .side-foot .chip-model .go { margin-left: auto; font-size: 11px; color: var(--faint); flex: none; }
+
+  /* A slow ring that fades out, so the dot reads as a light that is on. */
+  @keyframes breathe {
+    0%, 100% { opacity: .65; box-shadow: 0 0 0 0 rgba(var(--halo), .55); }
+    50% { opacity: 1; box-shadow: 0 0 0 4px rgba(var(--halo), 0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .side-foot .chip-model .dot { animation: none; opacity: 1; }
+    .step-nav.nudge, .step-nav.ready { animation: none; }
+  }
+  .theme-block { margin-top: 14px; }
+  .seg {
+    display: flex; gap: 2px; padding: 2px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  }
+  .seg button {
+    flex: 1; border: 0; background: none; padding: 5px 0; border-radius: 6px;
+    font-family: inherit; font-size: 11px; color: var(--muted); cursor: pointer;
+  }
+  .seg button:hover { color: var(--ink); }
+  /* The highlight follows the attribute, not a class, so it cannot lag behind. */
+  :root[data-theme-mode="auto"] #theme-seg [data-mode="auto"],
+  :root[data-theme-mode="light"] #theme-seg [data-mode="light"],
+  :root[data-theme-mode="dark"] #theme-seg [data-mode="dark"] {
+    background: var(--accent-soft); color: var(--accent-ink); font-weight: 600;
+  }
+
+  /* One window, always. The page scrolls inside this column instead of the
+     document growing; otherwise every new panel pushes the whole page down. */
+  .main {
+    width: 100%; max-width: 980px; margin: 0 auto; padding: 32px 32px 28px;
+    height: 100vh; overflow-y: auto; display: flex; flex-direction: column;
+  }
+  .page { display: none; }
+  .page.on { display: block; }
+  .page h1 { font-size: 16px; font-weight: 500; margin: 0 0 4px; }
+  .page .sub { font-size: 12.5px; color: var(--muted); margin: 0 0 20px; line-height: 1.6; }
+
+  .two-col {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: 1fr; gap: 14px;
+  }
+  /* The arrange view is a two-pane workspace, so it takes the rest of the
+     window instead of a fixed height that left the bottom half empty. */
+  [data-page="arrange"].page.on { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  [data-page="arrange"] .two-col { flex: 1; min-height: 0; }
+  /* Fixed height: opening a folder must not push the page taller. The list
+     scrolls inside the card instead. */
+  .col {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px; display: flex; flex-direction: column;
+  }
+  .two-col .col { height: auto; min-height: 0; }
+  #lib-fav, #tax-list { flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px; }
+  .col.accent { background: var(--card); border-color: var(--accent-line); }
+  .col-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+  .col-head b { font-size: 12.5px; }
+  .col-head span { font-size: 10.5px; color: var(--muted); }
+  .col .muted-note { margin: 0 0 10px; }
+
+  .tax-row .cnt { font-size: 11px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+  .tax-row input { padding: 6px 8px; font-size: 12px; }
+
+  /* What happens, one row per destination, before anything is clicked. */
+  /* A long plan used to push the page past one screen and scroll the title
+     out of view. The list takes the scrollbar instead — and it takes the
+     height that is actually left, rather than a guess at the furniture. */
+  [data-page="execute"].page.on {
+    display: flex; flex-direction: column; flex: 1; min-height: 0;
+  }
+  [data-page="execute"].page.on > * { flex: 0 0 auto; }
+  #exec-box { flex: 0 1 auto; max-height: 100%; min-height: 0; }
+  #exec-box > * { flex: 0 0 auto; }
+  #exec-targets { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+  .exec-targets { margin-top: 12px; }
+  .exec-targets .row {
+    display: flex; align-items: baseline; gap: 10px; padding: 8px 0;
+    border-bottom: 1px solid var(--line-soft); font-size: 12.5px;
+  }
+  .exec-targets .row .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .exec-targets .row .c { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .exec-targets .note { font-size: 11px; color: var(--faint); padding: 10px 0 0; line-height: 1.6; }
+
+  .bar { height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; }
+  .bar > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .25s ease; }
+  .pick-row { cursor: pointer; }
+  #empty-list { max-height: 46vh; overflow-y: auto; }
+  /* The arrow means "click to see what is inside". Nothing is inside a folder
+     that has just been emptied, so the rows here carry a checkbox and no arrow. */
+  #empty-list .nm::before { content: none; }
+
+  .arrange-foot { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .note { font-size: 11.5px; color: var(--muted); }
+
+  @media (max-width: 780px) {
+    .app { grid-template-columns: 1fr; }
+    .side { flex-direction: row; align-items: center; gap: 12px; overflow: hidden; padding: 10px 14px; border-right: 0; border-bottom: 1px solid var(--line); }
+    .side-label, .brand span { display: none; }
+    #nav { display: flex; gap: 4px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+    #nav::-webkit-scrollbar { display: none; }
+    #nav button { width: auto; flex: none; white-space: nowrap; }
+    #nav button em { display: none; }
+    .brand { flex: none; }
+    .side-foot { margin: 0 0 0 auto; padding: 0; border: 0; flex: none; }
+    .side-foot .chip-model { width: auto; }
+    .side-foot .side-label { display: none; }
+    .side-foot .chip-model .go { display: none; }
+    .theme-block { display: none; }
+    .main { padding: 20px 16px 40px; height: auto; min-height: 70vh; overflow: visible; }
+    .two-col { grid-template-columns: 1fr; grid-template-rows: auto; }
+    [data-page="arrange"].page.on { display: block; }
+    .col { height: auto; max-height: 60vh; }
+  }
+
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <b>Cid-Larder</b>
+      <span>本地运行</span>
+    </div>
+    <div class="side-label">流程</div>
+    <nav id="nav">
+      <button data-view="platform">选择平台<em>B站</em></button>
+      <button data-view="login">登录<em id="nav-login">未登录</em></button>
+      <button data-view="collect">采集<em id="nav-collect">待采集</em></button>
+      <button data-view="arrange">整理<em id="nav-arrange">—</em></button>
+      <button data-view="execute">执行<em id="nav-execute">未开始</em></button>
+    </nav>
+    <div class="side-foot">
+      <div class="side-label">模型</div>
+      <button class="chip-model warn" id="model-chip" aria-label="设置模型">未配置，点击设置</button>
+      <div class="theme-block">
+        <div class="side-label">主题</div>
+        <div class="seg" id="theme-seg" role="group" aria-label="主题">
+          <button type="button" data-mode="auto">自动</button>
+          <button type="button" data-mode="light">浅色</button>
+          <button type="button" data-mode="dark">深色</button>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <button class="step-nav" id="step-prev" aria-label="上一步" title="上一步">
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"
+       stroke-linecap="round" stroke-linejoin="round"><path d="M10 3.5 5.5 8l4.5 4.5"/></svg>
+</button>
+<button class="step-nav" id="step-next" aria-label="下一步" title="下一步">
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"
+       stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5 10.5 8 6 12.5"/></svg>
+</button>
+
+  <main class="main">
+    <div class="banner" id="stale" style="display:none">
+      黑色窗口里跑的还是旧代码。关掉它，重新双击 run.bat。
+    </div>
+
+    <section class="page on" data-page="platform">
+      <header class="page-head">
+        <h1>选择平台</h1>
+      </header>
+      <p class="sub">要整理哪个平台的数据。</p>
+      <div class="page-body">
+        <div class="step-card">
+          <div class="platforms" id="platform-pick">
+            <button type="button" class="chip on" data-platform="bilibili">哔哩哔哩<small>收藏夹</small></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" data-page="login">
+      <header class="page-head">
+        <h1>登录</h1>
+      </header>
+      <p class="sub" id="login-hint">扫码登录。登录状态仅在本次运行期间有效，退出程序后需重新扫码。</p>
+      <div class="page-body">
+        <div class="step-card">
+        <div id="qr-panel" class="qr">
+          <div class="box" id="qr-box"></div>
+          <div class="meta">
+            <strong id="qr-title">正在生成二维码…</strong>
+            <span id="qr-status"><span class="dot live"></span>请稍候</span>
+          </div>
+        </div>
+        <div id="qr-done" style="display:none">
+          <div class="meta">
+            <strong id="who">已登录</strong>
+            <span><span class="dot ok"></span>退出程序后需重新扫码登录</span>
+          </div>
+          <div style="margin-top:12px"><button class="ghost" id="btn-logout">退出登录</button></div>
+        </div>
+        <div id="step-login" style="display:none"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" data-page="collect">
+      <header class="page-head">
+        <h1>采集</h1>
+      </header>
+      <p class="sub" id="collect-hint">只读操作，不会修改平台上的任何内容。</p>
+      <div class="page-body">
+        <div class="step-card">
+        <button class="primary" id="btn-collect" disabled>开始采集</button>
+        <div id="step-collect" style="display:none"></div>
+        <div id="collect-area" style="display:none;margin-top:16px">
+        <div class="bar" id="bar"><i></i></div>
+        <div class="status-line"><span id="stage">准备中</span><span id="counter"></span></div>
+        <div class="result" id="result" style="display:none">
+          <div class="result-head"><span class="tick">✓</span><b>采集完成</b></div>
+          <div class="stats">
+            <div class="stat"><b id="st-videos">—</b><span id="st-videos-label">收藏内容</span></div>
+            <div class="stat"><b id="st-time">—</b><span>用时</span></div>
+          </div>
+        </div>
+          <div class="err" id="err" style="display:none"></div>
+        </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" data-page="arrange">
+      <header class="page-head">
+        <h1>整理</h1>
+        <span class="page-usage" data-usage="arrange"></span>
+      </header>
+
+      <div class="two-col">
+        <section class="col" id="library-card">
+          <div class="col-head"><b>现状</b><span id="lib-hint"></span></div>
+          <div id="lib-fav"><p class="muted-note">登录并采集后，此处显示现有收藏夹。</p></div>
+        </section>
+
+        <section class="col accent" id="taxonomy-card">
+          <div class="col-head"><b>建议</b><span id="tax-hint"></span></div>
+          <div class="tax-count">
+            <div class="tax-count-row">
+              <span class="lbl">分类数</span>
+              <input type="range" id="tax-count" min="1" max="50" step="1" value="15"
+                     aria-label="分类数量">
+              <b id="tax-count-value">15</b>
+            </div>
+            <div class="bubble" id="tax-count-warn" role="status" style="display:none">
+              超过 20 个，B 站收藏夹列表就要翻两屏，翻起来会烦。
+            </div>
+          </div>
+          <div id="tax-empty">
+            <p class="muted-note" id="tax-empty-note">由模型读取全部收藏并生成分类，生成后立即生效，无需保存。不需要的分类可点击 × 删除，其内容将归入「存疑」。</p>
+            <div class="tax-actions" style="margin-top:0">
+              <button class="primary" id="btn-suggest">生成分类建议</button>
+            </div>
+          </div>
+          <div id="tax-list" style="display:none"></div>
+          <div class="tax-actions" id="tax-actions" style="display:none">
+            <button class="ghost with-icon" id="btn-resuggest">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"
+                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"/>
+                <path d="M13.5 2.6v3.1h-3.1"/>
+              </svg>
+              换一换
+            </button>
+            <button class="primary" id="btn-classify">开始归类</button>
+          </div>
+          <p class="muted-note" id="tax-progress" style="display:none;margin:10px 0 0"></p>
+          <div class="err" id="tax-err" style="display:none"></div>
+        </section>
+      </div>
+
+      <div class="arrange-foot">
+        <span class="note" id="plan-hint">归类将读取全部收藏，完成后给出每个分类的条目数量。</span>
+        <p class="muted-note" id="plan-progress" style="display:none;margin:10px 0 0"></p>
+        <div class="err" id="plan-err" style="display:none"></div>
+      </div>
+    </section>
+
+    <section class="page" data-page="execute">
+      <header class="page-head">
+        <h1>执行</h1>
+      </header>
+      <p class="sub" id="exec-hint">将归类结果写回 B 站：仅执行移动，不删除、不重命名。</p>
+      <div class="col" id="exec-box">
+        <div class="col-head"><b>将要做的事</b><span id="exec-count"></span></div>
+        <p class="muted-note" id="exec-summary">尚未生成归类结果，请先前往「整理」。</p>
+        <div class="exec-targets" id="exec-targets"></div>
+      </div>
+      <div class="tax-actions" style="margin-top:16px">
+        <button class="ghost" id="btn-backup">备份现状</button>
+        <button class="danger" id="btn-execute">执行</button>
+      </div>
+      <div id="exec-progress" style="display:none;margin-top:14px">
+        <div class="bar"><i id="exec-bar"></i></div>
+        <p class="muted-note" id="exec-bar-text" style="margin:6px 0 0"></p>
+      </div>
+      <p class="muted-note" id="plan-note" style="display:none;margin:12px 0 0"></p>
+      <div id="exec-empty" style="display:none;margin-top:14px">
+        <button class="ghost" id="btn-open-empty">查看并删除空收藏夹</button>
+      </div>
+      <!-- Deleting reports here, not over the run's summary: that line is the
+           only record of what the execution did. -->
+      <p class="muted-note" id="empty-result" style="display:none;margin:10px 0 0"></p>
+    </section>
+  </main>
+</div>
+
+<div class="overlay" id="exec-modal" style="display:none">
+  <div class="modal" style="max-width:470px">
+    <div class="modal-head">
+      <b>确认执行</b>
+      <button class="x" id="exec-close" aria-label="关闭">×</button>
+    </div>
+    <div class="modal-body">
+      <p class="muted-note" id="exec-summary-line"></p>
+      <div class="confirm-warn">
+        <b>开始后无法撤销</b>
+        现状已导出到 <span id="exec-file">下载文件夹</span>。<span id="exec-note">如移动结果有误，只能依据该文件手动恢复。</span>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <div class="tax-actions" style="margin:0">
+        <button class="ghost" id="exec-cancel">取消</button>
+        <button class="danger" id="exec-confirm">确认执行</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="empty-modal" style="display:none">
+  <div class="modal">
+    <div class="modal-head">
+      <b>删除空收藏夹</b>
+      <button class="x" id="empty-close" aria-label="关闭">×</button>
+    </div>
+    <div class="modal-body">
+      <p class="muted-note">下列为本轮清空的旧收藏夹。删除后无法恢复；其中的内容已移入新收藏夹，不受影响。</p>
+      <div id="empty-list"></div>
+      <p class="err" id="empty-err" style="display:none"></p>
+      <div id="empty-progress" style="display:none;margin-top:12px">
+        <div class="bar"><i id="empty-bar"></i></div>
+        <p class="muted-note" id="empty-bar-text" style="margin:6px 0 0"></p>
+      </div>
+      <div class="tax-actions" style="margin-top:14px">
+        <button class="ghost" id="empty-cancel">取消</button>
+        <button class="danger" id="empty-confirm">删除所选</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="model-modal" style="display:none">
+  <div class="modal">
+    <div class="modal-head">
+      <b>模型设置</b>
+      <button class="x" id="model-close" aria-label="关闭">×</button>
+    </div>
+    <div class="modal-body">
+      <p class="muted-note" id="model-intro" style="display:none"></p>
+      <div class="group-title">对话模型 · 读取标题、生成分类</div>
+      <div class="field"><label>服务商</label><select id="llm-provider"></select></div>
+      <div class="field"><label>API Key</label><input id="llm-key" type="password" autocomplete="off" placeholder="粘贴 Key"></div>
+      <div class="field with-action">
+        <label>模型名</label>
+        <div class="combo">
+          <input id="llm-model" autocomplete="off" placeholder="留空用默认">
+          <button class="caret" id="llm-caret" type="button" aria-label="展开模型列表">▼</button>
+          <ul class="combo-list" id="llm-model-options"></ul>
+        </div>
+        <button class="mini-btn" id="llm-fetch">拉取</button>
+      </div>
+      <div class="test-row">
+        <button class="ghost" id="llm-test">测试连接</button>
+        <span class="result" id="llm-status"></span>
+      </div>
+
+      <div class="group-title">向量模型 · 将每条内容转换为向量</div>
+      <div class="field"><label>服务商</label><select id="emb-provider"></select></div>
+      <div class="field"><label>API Key</label><input id="emb-key" type="password" autocomplete="off" placeholder="粘贴 Key"></div>
+      <div class="field with-action">
+        <label>模型名</label>
+        <div class="combo">
+          <input id="emb-model" autocomplete="off" placeholder="留空用默认">
+          <button class="caret" id="emb-caret" type="button" aria-label="展开模型列表">▼</button>
+          <ul class="combo-list" id="emb-model-options"></ul>
+        </div>
+        <button class="mini-btn" id="emb-fetch">拉取</button>
+      </div>
+      <div class="test-row">
+        <button class="ghost" id="emb-test">测试连接</button>
+        <span class="result" id="emb-status"></span>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <div class="warn">Key 将以明文保存至本机 data/config.json（不纳入版本控制）。使用完毕后建议前往服务商控制台吊销该 Key。</div>
+      <button class="primary" id="model-save">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const HEADERS = { "X-Cid-Larder": "1" };
+const API_VERSION = 57;
+const $ = (id) => document.getElementById(id);
+
+// Wiring a handler to an element that is not on the page used to throw, and
+// because every binding runs at the same level, the throw stopped the rest:
+// one removed element left 配置 and 采集 dead. A missing target is now a note
+// in the console and nothing else.
+function on(id, type, handler) {
+  const el = $(id);
+  if (!el) {
+    console.warn("missing element:", id);
+    return;
+  }
+  el[type] = handler;
+}
+const THEME_KEY = "cid-larder-theme";
+const themeMq = window.matchMedia("(prefers-color-scheme: dark)");
+
+// Storage is the only source of truth: nothing is mirrored in a variable, so a
+// change made in another tab or by the system cannot leave this one stale.
+function savedTheme() {
+  try {
+    const value = localStorage.getItem(THEME_KEY);
+    return value === "light" || value === "dark" ? value : "auto";
+  } catch (_) {
+    return "auto";
+  }
+}
+
+function applyTheme(mode, persist) {
+  const root = document.documentElement;
+  root.dataset.themeMode = mode;
+  root.dataset.theme = mode === "dark" || (mode === "auto" && themeMq.matches)
+    ? "dark"
+    : "light";
+  if (!persist) return;
+  try {
+    if (mode === "auto") localStorage.removeItem(THEME_KEY);
+    else localStorage.setItem(THEME_KEY, mode);
+  } catch (_) {}
+}
+
+document.querySelectorAll("#theme-seg button").forEach((btn) => {
+  btn.onclick = () => applyTheme(btn.dataset.mode, true);
+});
+
+// The OS flips while the page is open; only auto should follow it.
+themeMq.addEventListener("change", () => {
+  if (savedTheme() === "auto") applyTheme("auto", false);
+});
+
+window.addEventListener("storage", (event) => {
+  if (event.key === THEME_KEY) applyTheme(savedTheme(), false);
+});
+
+// Back/forward cache restores the DOM with whatever attributes it had then.
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) applyTheme(savedTheme(), false);
+});
+
+applyTheme(savedTheme(), false);
+
+let pollTimer = null, statusTimer = null;
+
+// One platform, one vocabulary. Kept as an object because a label read from
+// one place is easier to keep honest than the same word typed in six.
+const T = {
+  container: "收藏夹",
+  item: "收藏内容",
+  stage: "收藏夹",
+  all: "全部收藏",
+};
+
+function postJson(path, body) {
+  return api(path, {
+    method: "POST",
+    headers: { ...HEADERS, "Content-Type": "application/json" },
+    body: JSON.stringify(body || {}),
+  });
+}
+
+async function api(path, options = {}) {
+  const res = await fetch(path, { headers: HEADERS, ...options });
+  if (!res.ok) {
+    let detail = res.statusText;
+    try { detail = (await res.json()).detail || detail; } catch (_) {}
+    throw new Error(detail);
+  }
+  return res.json();
+}
+
+const setStep = (id, done) => {
+  const el = $(id);
+  if (el) el.classList.toggle("done", !!done);
+};
+
+function initialView() {
+  const hash = (location.hash || "").replace("#", "");
+  const known = ["platform", "login", "collect", "arrange", "execute"];
+  return known.includes(hash) ? hash : "";
+}
+
+const VIEWS = ["platform", "login", "collect", "arrange", "execute"];
+const VIEW_LABEL = {
+  platform: "选择平台", login: "登录", collect: "采集",
+  arrange: "整理", execute: "执行",
+};
+
+function updateStepNav() {
+  const current = document.querySelector(".page.on");
+  if (!current) return;
+  const index = VIEWS.indexOf(current.dataset.page);
+  const prev = $("step-prev");
+  const next = $("step-next");
+  if (!prev || !next) return;
+
+  prev.disabled = index <= 0;
+  next.disabled = index < 0 || index >= VIEWS.length - 1;
+  prev.title = index > 0 ? `上一步：${VIEW_LABEL[VIEWS[index - 1]]}` : "已经是第一步";
+  next.title = index >= 0 && index < VIEWS.length - 1
+    ? `下一步：${VIEW_LABEL[VIEWS[index + 1]]}`
+    : "已经是最后一步";
+
+  // Lit for as long as this step has something to hand over.
+  const waiting = current.dataset.page === "arrange" && !!planData && planData.total > 0;
+  next.classList.toggle("ready", waiting && !next.disabled);
+}
+
+// Draw the eye to the arrow that leaves this step, then stop: a permanent
+// animation would compete with the arrow's normal state.
+function nudgeNext() {
+  const button = $("step-next");
+  // offsetParent is always null for a fixed element, so measure the box.
+  if (!button || button.disabled || button.offsetWidth === 0) return;
+  button.classList.remove("nudge");
+  void button.offsetWidth;   // restart the animation if it is already running
+  button.classList.add("nudge");
+  setTimeout(() => button.classList.remove("nudge"), 3100);
+}
+
+function stepBy(delta) {
+  const current = document.querySelector(".page.on");
+  if (!current) return;
+  const target = VIEWS[VIEWS.indexOf(current.dataset.page) + delta];
+  if (target) showView(target);
+}
+
+function showView(name) {
+  document.querySelectorAll("[data-page]").forEach((el) => {
+    el.classList.toggle("on", el.dataset.page === name);
+  });
+  document.querySelectorAll("#nav button").forEach((el) => {
+    el.classList.toggle("on", el.dataset.view === name);
+  });
+  updateStepNav();
+  // The code is only worth asking for when the page that shows it is open.
+  if (name === "login" && !$("qr-box").innerHTML.trim()) startLogin();
+}
+
+$("step-prev").onclick = () => stepBy(-1);
+$("step-next").onclick = () => stepBy(1);
+
+document.querySelectorAll("#nav button").forEach((btn) => {
+  btn.onclick = () => showView(btn.dataset.view);
+});
+
+// One retry only: a loop would be worse than the stale page it cannot fix.
+function alreadyRetried() {
+  try {
+    if (sessionStorage.getItem("cid-larder-stale")) return true;
+    sessionStorage.setItem("cid-larder-stale", "1");
+    return false;
+  } catch (_) {
+    return true;
+  }
+}
+
+async function boot() {
+  let s = null;
+  try {
+    s = await api("/api/state");
+  } catch (_) {}
+
+  if (s && s.api !== API_VERSION) {
+    // A page older than the server came from the browser cache, not from a
+    // server that needs restarting. Fetch it again under a URL it has never
+    // seen, which is also what run.bat opens.
+    if (Number(s.api) > API_VERSION && !alreadyRetried()) {
+      location.replace(`${location.pathname}?v=${s.api}`);
+      return;
+    }
+    $("stale").style.display = "block";
+    $("btn-collect").disabled = true;
+    return;
+  }
+
+  try {
+    sessionStorage.removeItem("cid-larder-stale");
+  } catch (_) {}
+
+  if (s) {
+    loadModels();
+    if (s.logged_in) return showLoggedIn(s.uname, s.uid);
+  }
+  showView(initialView() || "platform");
+  // The library is whatever the process has collected, login or not.
+  loadLibrary();
+  loadTaxonomy();
+  loadPlan();
+}
+
+async function loadLibrary() {
+  let lib;
+  try {
+    lib = await api("/api/library");
+  } catch (_) {
+    return;
+  }
+  const favs = lib.favorites || [];
+  videoCount = (lib.totals && lib.totals.videos) || 0;
+
+  $("lib-fav").textContent = "";
+  $("lib-hint").textContent = "";
+  if (!favs.length) {
+    emptyNote($("lib-fav"), "尚未采集，请先在「采集」页面执行一次采集。");
+    return;
+  }
+
+  const keptOut = favs.filter((f) => f.excluded).length;
+  $("lib-hint").textContent = keptOut
+    ? `${favs.length} 个${T.container} · ${keptOut} 个已排除`
+    : `${favs.length} 个${T.container}`;
+  renderRows($("lib-fav"), favs);
+}
+
+function emptyNote(host, text) {
+  const p = document.createElement("p");
+  p.className = "muted-note";
+  p.textContent = text;
+  host.appendChild(p);
+}
+
+function renderRows(host, rows) {
+  host.textContent = "";
+  rows.forEach((r) => {
+    const row = document.createElement("div");
+    row.className = "item-row expandable lib-row";
+    if (r.excluded) row.classList.add("kept-out");
+    row.title = r.excluded
+      ? "已排除：本次不读取其内容，也不会移动其中的条目。勾选即可恢复。"
+      : "点击展开查看内容；取消左侧勾选可将它排除在本次任务之外";
+
+    const name = document.createElement("span");
+    name.className = "nm";
+    name.textContent = r.name;
+
+    const count = document.createElement("span");
+    count.className = "ct";
+    count.textContent = r.excluded ? "已排除" : r.stored;
+
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.className = "pick";
+    box.checked = !r.excluded;
+    box.title = r.excluded
+      ? "勾选：参与本次整理"
+      : "取消勾选：本次整理跳过该收藏夹，不影响 B 站上的数据";
+    box.onclick = (event) => event.stopPropagation();
+    box.onchange = () => toggleKeepOut(r);
+
+    row.append(box, name, count);
+    row.onclick = () =>
+      toggleSub(row, `/api/library/container/${encodeURIComponent(r.id)}`);
+    host.appendChild(row);
+  });
+}
+
+// Unticking is not deleting: the folder stays on Bilibili, with everything in
+// it. It only stops taking part in this run, which is all this page decides.
+async function toggleKeepOut(folder) {
+  const next = !folder.excluded;
+  try {
+    const res = await postJson(
+      `/api/library/container/${encodeURIComponent(folder.id)}/exclude`,
+      { excluded: next }
+    );
+    await loadLibrary();
+    await loadPlan();
+    if (next) {
+      showTaxNote(
+        res.removed
+          ? `已将「${folder.name}」排除，其 ${res.removed} 条内容已移出本次计划。B 站上的收藏夹未做改动。`
+          : `已将「${folder.name}」排除。B 站上的收藏夹未做改动。`,
+        false
+      );
+    } else {
+      showTaxNote(
+        `已恢复「${folder.name}」。重新归类后，其内容才会重新纳入计划。`,
+        false
+      );
+    }
+  } catch (e) {
+    showTaxNote(e.message, true);
+  }
+}
+
+// Opens a list under a row and closes it on the second click. The content is
+// fetched once per opening; nothing is kept, so it can never go stale.
+async function toggleSub(anchor, url, key) {
+  const next = anchor.nextElementSibling;
+  if (next && next.classList.contains("sub-list")) {
+    next.remove();
+    anchor.classList.remove("open");
+    if (key) openTax.delete(key);
+    return;
+  }
+
+  if (key) openTax.add(key);
+  anchor.classList.add("open");
+  const box = document.createElement("div");
+  box.className = "sub-list";
+  box.textContent = "读取中…";
+  anchor.after(box);
+
+  try {
+    const data = await api(url);
+    const items = data.items || [];
+    box.textContent = "";
+    if (!items.length) {
+      box.textContent = "该分类暂无内容，请先执行「开始归类」。";
+      return;
+    }
+    const list = document.createElement("ul");
+    items.forEach((item) => list.appendChild(itemLine(item)));
+    box.appendChild(list);
+    if ((data.total || 0) > items.length) {
+      const more = document.createElement("div");
+      more.className = "more";
+      more.textContent = `仅显示前 ${items.length} 条，共 ${data.total} 条`;
+      box.appendChild(more);
+    } else if (items.length > 10) {
+      const more = document.createElement("div");
+      more.className = "more";
+      more.textContent = `共 ${items.length} 条 · 列表内滚动查看`;
+      box.appendChild(more);
+    }
+  } catch (e) {
+    box.textContent = `读取失败：${e.message}`;
+  }
+}
+
+function itemLine(item) {
+  const li = document.createElement("li");
+
+  const title = document.createElement("span");
+  title.className = "t";
+  title.textContent = item.title;
+
+  const upper = document.createElement("span");
+  upper.className = "u";
+  upper.textContent = item.upper || "UP 主未知";
+
+  li.append(title, upper);
+
+  if (item.confidence !== undefined && item.confidence !== null) {
+    const bits = [`${Math.round(item.confidence * 100)}%`];
+    // Without the runner-up a percentage says nothing: 38% is only worrying
+    // once you see the other option was 37%.
+    if (item.runner && item.runner_score) {
+      bits.push(`次选 ${item.runner} ${Math.round((item.runner_score || 0) * 100)}%`);
+    }
+    const score = document.createElement("span");
+    score.className = "score";
+    score.textContent = bits.join(" · ");
+    li.appendChild(score);
+  }
+  return li;
+}
+
+async function startLogin() {
+  $("qr-box").innerHTML = "";
+  $("qr-panel").style.display = "flex";
+  $("qr-done").style.display = "none";
+  $("qr-title").textContent = "正在生成二维码…";
+  $("qr-status").innerHTML = '<span class="dot live"></span>请稍候';
+  try {
+    const { key, svg } = await api("/api/login/start", { method: "POST" });
+    $("qr-box").innerHTML = svg;
+    $("qr-title").textContent = "用哔哩哔哩 App 扫码";
+    $("qr-status").innerHTML = '<span class="dot live"></span>等待扫码';
+    clearInterval(pollTimer);
+    pollTimer = setInterval(() => pollLogin(key), 2000);
+  } catch (e) {
+    $("qr-title").textContent = "二维码生成失败";
+    $("qr-status").textContent = e.message;
+  }
+}
+
+async function pollLogin(key) {
+  try {
+    const r = await api(`/api/login/poll?key=${encodeURIComponent(key)}`);
+    if (r.state === "waiting") {
+      $("qr-status").innerHTML = '<span class="dot live"></span>等待扫码';
+    } else if (r.state === "scanned") {
+      $("qr-status").innerHTML = '<span class="dot live"></span>已扫码，请在手机上确认登录';
+    } else if (r.state === "ok") {
+      clearInterval(pollTimer);
+      showLoggedIn(r.uname, r.uid);
+    } else if (r.state === "expired") {
+      clearInterval(pollTimer);
+      $("qr-box").innerHTML = "";
+      $("qr-title").textContent = "二维码已过期";
+      $("qr-status").textContent = "请点击右侧按钮重新生成";
+      const btn = document.createElement("button");
+      btn.className = "ghost";
+      btn.textContent = "重新扫码";
+      btn.onclick = startLogin;
+      $("qr-box").appendChild(btn);
+    }
+  } catch (e) {
+    $("qr-status").textContent = e.message;
+  }
+}
+
+function showLoggedIn(uname, uid) {
+  $("qr-panel").style.display = "none";
+  $("qr-done").style.display = "block";
+  $("who").textContent = uname ? `${uname}（uid ${uid}）` : `uid ${uid}`;
+  $("login-hint").textContent = "已登录";
+  $("nav-login").textContent = uname || `uid ${uid}`;
+  setStep("step-login", true);
+  $("btn-collect").disabled = false;
+
+  loadLibrary();
+  loadTaxonomy();
+  loadPlan();
+  refreshUsage();
+  showView(initialView() || "collect");
+}
+
+async function logout() {
+  await api("/api/logout", { method: "POST" });
+  setStep("step-login", false);
+  $("login-hint").textContent = "扫码登录。登录态仅保留在内存中，进程退出即失效。";
+  $("btn-collect").disabled = true;
+  $("btn-collect").textContent = "开始采集";
+  $("collect-area").style.display = "none";
+  $("qr-panel").style.display = "flex";
+  $("qr-done").style.display = "none";
+  $("nav-login").textContent = "未登录";
+  $("nav-collect").textContent = "待采集";
+  $("nav-arrange").textContent = "—";
+  $("nav-execute").textContent = "未开始";
+  $("lib-fav").textContent = "";
+  $("tax-list").textContent = "";
+  $("tax-hint").textContent = "";
+  $("plan-hint").textContent = "";
+  $("exec-summary").textContent = "尚未生成归类结果，请先前往「整理」。";
+  $("exec-count").textContent = "";
+  planData = null;
+  $("qr-box").innerHTML = "";
+  showView(initialView() || "login");
+}
+
+async function startCollect() {
+  $("btn-collect").disabled = true;
+  $("collect-area").style.display = "block";
+  $("result").style.display = "none";
+  $("err").style.display = "none";
+  $("bar").classList.add("indet");
+  $("bar").firstElementChild.style.width = "0";
+  $("stage").textContent = "准备中";
+  $("counter").textContent = "";
+  try {
+    await api("/api/collect/start", { method: "POST" });
+    clearInterval(statusTimer);
+    statusTimer = setInterval(pollStatus, 600);
+  } catch (e) {
+    $("bar").classList.remove("indet");
+    showError(e.message);
+    $("btn-collect").disabled = false;
+  }
+}
+
+async function pollStatus() {
+  const s = await api("/api/collect/status");
+  $("stage").textContent = s.stage ? T.stage : "准备中";
+  $("counter").textContent = s.total ? `${s.done} / ${s.total}` : (s.done ? `${s.done}` : "");
+  if (s.note) $("counter").textContent = s.note;
+
+  const bar = $("bar");
+  if (s.total > 0) {
+    bar.classList.remove("indet");
+    bar.firstElementChild.style.width = Math.min(100, (s.done / s.total) * 100) + "%";
+  }
+
+  if (s.finished) {
+    clearInterval(statusTimer);
+    bar.classList.remove("indet");
+    bar.firstElementChild.style.width = "100%";
+    $("counter").textContent = "";
+    $("stage").textContent = s.error ? "失败" : "";
+    if (s.error) {
+      showError(s.error);
+    } else if (s.summary) {
+      $("st-videos").textContent = s.summary.videos;
+      $("st-time").textContent = s.summary.seconds + "s";
+      $("result").style.display = "block";
+    }
+    $("btn-collect").disabled = false;
+    $("btn-collect").textContent = "再采集一次";
+    if (s.summary && s.summary.videos !== undefined) {
+      $("nav-collect").textContent = `${s.summary.videos} 条`;
+      $("nav-arrange").textContent = "待归类";
+    }
+    loadLibrary();
+    loadTaxonomy();
+    loadPlan();
+    refreshUsage();
+    if (!s.error) showView("arrange");
+  }
+}
+
+function showError(msg) {
+  const el = $("err");
+  el.textContent = msg;
+  el.style.display = "block";
+}
+
+let presets = [];
+
+async function loadModels() {
+  const data = await api("/api/models");
+  presets = data.presets || [];
+  fillProviders("llm-provider");
+  fillProviders("emb-provider");
+
+  const cur = data.current || {};
+  applyCurrent("llm", cur.llm);
+  applyCurrent("emb", cur.embedding);
+  updateChip(cur);
+  askForModels(cur);
+}
+
+// A fresh install can do nothing until two keys exist: the chat model writes
+// the categories, the embedding model decides where each item goes. Say that
+// before the first click fails. Once per browser session - a dialog that
+// reopens on every refresh is a nag, not a hint.
+function askForModels(current) {
+  const missing = [];
+  if (!(current && current.llm && current.llm.has_key)) missing.push("对话模型");
+  if (!(current && current.embedding && current.embedding.has_key)) missing.push("向量模型");
+
+  const intro = $("model-intro");
+  if (!missing.length) {
+    intro.style.display = "none";
+    return;
+  }
+  intro.textContent =
+    `还缺${missing.join("和")}的 Key。对话模型用于生成分类，向量模型用于将每条内容归入分类，缺少任一项均无法运行。`;
+  intro.style.display = "block";
+
+  try {
+    if (sessionStorage.getItem("cid-larder-asked-models")) return;
+    sessionStorage.setItem("cid-larder-asked-models", "1");
+  } catch (_) {
+    return;  // no storage to remember, so do not risk opening on every load
+  }
+  $("model-modal").style.display = "flex";
+}
+
+function fillProviders(id) {
+  const el = $(id);
+  el.textContent = "";
+  // 「无向量」only means anything next to the embedding choice; in the chat
+  // list it reads as a defect of the chat model.
+  const embed = id === "emb-provider";
+  presets.forEach((p) => {
+    const opt = document.createElement("option");
+    opt.value = p.id;
+    // 未列出 != 不支持: OpenAI/SiliconFlow 只是没随包附带模型名，用户仍可手填。
+    const noVectors = embed && !(p.embedding_models || []).length;
+    opt.textContent = p.label + (noVectors ? "（未列出向量模型）" : "");
+    el.appendChild(opt);
+  });
+}
+
+function applyCurrent(kind, info) {
+  if (!info) return;
+  const provider = $(kind === "llm" ? "llm-provider" : "emb-provider");
+  if (info.provider) provider.value = info.provider;
+
+  const model = $(kind === "llm" ? "llm-model" : "emb-model");
+  model.value = info.model || "";
+  syncModelHint(kind);
+
+  const key = $(kind === "llm" ? "llm-key" : "emb-key");
+  key.placeholder = info.has_key ? `已保存 ${info.masked}，留空则不修改` : "粘贴 Key";
+}
+
+const presetOf = (id) => presets.find((p) => p.id === id);
+
+const fmtTokens = (n) => (n === null || n === undefined ? "—" : n.toLocaleString("zh-CN"));
+
+// Which step each stage belongs to. The number belongs next to the step that
+// spent it, not in the sidebar where all five pages showed the same total.
+const STAGE_PAGE = { suggest: "arrange", classify: "arrange" };
+
+async function refreshUsage() {
+  let data;
+  try {
+    data = await api("/api/usage");
+  } catch (_) {
+    return;
+  }
+
+  const pages = {};
+  (data.stages || []).forEach((s) => {
+    const page = STAGE_PAGE[s.stage];
+    if (!page) return;
+    const acc = pages[page] || (pages[page] = { tokens: 0, calls: 0, labels: [] });
+    acc.tokens += s.total_tokens || 0;
+    acc.calls += s.calls || 0;
+    acc.labels.push(`${s.label} ${fmtTokens(s.total_tokens)}`);
+  });
+
+  document.querySelectorAll("[data-usage]").forEach((el) => {
+    const acc = pages[el.dataset.usage];
+    if (!acc || !acc.calls) {
+      el.textContent = "";
+      el.removeAttribute("title");
+      return;
+    }
+    el.innerHTML = acc.tokens
+      ? `本次 <b>${fmtTokens(acc.tokens)}</b> token`
+      : "本次用量未返回";
+    el.title = acc.labels.join(" · ");
+  });
+}
+
+let videoCount = 0;
+
+const modelOptions = { llm: [], emb: [] };
+
+const modelInput = (kind) => $(kind === "llm" ? "llm-model" : "emb-model");
+// The page's short kind, translated to the name the server and config.json use.
+const blockName = (kind) => (kind === "llm" ? "llm" : "embedding");
+const optionList = (kind) => $(kind === "llm" ? "llm-model-options" : "emb-model-options");
+
+function syncModelHint(kind) {
+  const isChat = kind === "llm";
+  const preset = presetOf($(isChat ? "llm-provider" : "emb-provider").value);
+  const candidates = preset ? (isChat ? preset.chat_models : preset.embedding_models) || [] : [];
+
+  const model = modelInput(kind);
+  model.placeholder = candidates.length
+    ? `留空则使用默认值：${candidates[0]}`
+    : "必填，可点击「拉取」或手动填写";
+
+  setModelOptions(kind, candidates);
+}
+
+function setModelOptions(kind, names) {
+  modelOptions[kind] = (names || []).slice();
+  renderOptions(kind, "");
+}
+
+function renderOptions(kind, filter = "") {
+  const list = optionList(kind);
+  const needle = (filter || "").trim().toLowerCase();
+  const items = modelOptions[kind].filter((name) => !needle || name.toLowerCase().includes(needle));
+
+  list.textContent = "";
+  if (!items.length) {
+    const empty = document.createElement("li");
+    empty.className = "empty";
+    empty.textContent = modelOptions[kind].length ? "没有匹配的模型" : "尚未获取列表，请点击「拉取」";
+    list.appendChild(empty);
+    return;
+  }
+  items.forEach((name) => {
+    const li = document.createElement("li");
+    li.textContent = name;
+    li.onmousedown = (event) => {
+      event.preventDefault();
+      modelInput(kind).value = name;
+      closeOptions(kind);
+    };
+    list.appendChild(li);
+  });
+}
+
+function openOptions(kind) {
+  if (!modelOptions[kind].length) return;
+  renderOptions(kind, "");
+  optionList(kind).classList.add("open");
+}
+
+function closeOptions(kind) {
+  optionList(kind).classList.remove("open");
+}
+
+function toggleOptions(kind) {
+  if (optionList(kind).classList.contains("open")) closeOptions(kind);
+  else openOptions(kind);
+}
+
+["llm", "emb"].forEach((kind) => {
+  const input = modelInput(kind);
+  input.onfocus = () => openOptions(kind);
+  input.oninput = () => {
+    if (!modelOptions[kind].length) return;
+    optionList(kind).classList.add("open");
+    renderOptions(kind, input.value);
+  };
+  input.onblur = () => setTimeout(() => closeOptions(kind), 120);
+
+  $(kind === "llm" ? "llm-caret" : "emb-caret").onclick = () => {
+    toggleOptions(kind);
+    input.focus();
+  };
+});
+
+async function fetchModels(kind) {
+  const isChat = kind === "llm";
+  const status = $(isChat ? "llm-status" : "emb-status");
+  status.className = "result";
+  status.textContent = "拉取中…";
+
+  const button = $(isChat ? "llm-fetch" : "emb-fetch");
+  button.disabled = true;
+  try {
+    const r = await api("/api/models/list", {
+      method: "POST",
+      headers: { ...HEADERS, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        block: blockName(kind),
+        provider: $(isChat ? "llm-provider" : "emb-provider").value,
+        api_key: $(isChat ? "llm-key" : "emb-key").value,
+        base_url: "",
+      }),
+    });
+    if (!r.ok) {
+      status.className = "result bad";
+      status.textContent = r.message;
+      return;
+    }
+    setModelOptions(kind, r.models);
+    status.className = "result ok";
+    const looksLikeVectors = r.models.some((name) => /embedding|bge|m3e/i.test(name));
+    status.textContent = !isChat && !looksLikeVectors
+      ? `已获取 ${r.models.length} 个模型，其中没有向量模型，可使用默认值或手动填写`
+      : `已获取 ${r.models.length} 个模型`;
+    modelInput(kind).focus();
+    openOptions(kind);
+  } catch (e) {
+    status.className = "result bad";
+    status.textContent = e.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+$("llm-provider").onchange = () => syncModelHint("llm");
+$("emb-provider").onchange = () => syncModelHint("emb");
+
+const shortLabel = (name) => (name || "").split(/[\s(]/)[0];
+
+// One provider can serve both blocks; naming it twice would waste the width.
+function pairLabel(cur) {
+  const chat = shortLabel(cur.llm.label || cur.llm.provider);
+  const vector = shortLabel(cur.embedding.label || cur.embedding.provider);
+  return chat === vector ? chat : `${chat} · ${vector}`;
+}
+
+function updateChip(cur) {
+  const chip = $("model-chip");
+  const ready = !!(cur && cur.ready);
+  chip.className = "chip-model " + (ready ? "ready" : "warn");
+  chip.textContent = "";
+
+  const dot = document.createElement("span");
+  dot.className = "dot";
+  chip.appendChild(dot);
+
+  const text = document.createElement("span");
+  text.className = "model-name";
+  text.textContent = ready ? pairLabel(cur) : "未配置";
+  // Two labels rarely fit in 176px; the full names live in the tooltip.
+  text.title = ready
+    ? `${cur.llm.label} / ${cur.llm.model}\n${cur.embedding.label} / ${cur.embedding.model}`
+    : "点击设置对话模型与向量模型";
+  chip.appendChild(text);
+
+  const go = document.createElement("span");
+  go.className = "go";
+  go.textContent = "设置";
+  chip.appendChild(go);
+}
+
+async function testModel(kind) {
+  const isChat = kind === "llm";
+  const provider = $(isChat ? "llm-provider" : "emb-provider").value;
+  const key = $(isChat ? "llm-key" : "emb-key").value;
+  const model = $(isChat ? "llm-model" : "emb-model").value;
+  const status = $(isChat ? "llm-status" : "emb-status");
+
+  status.className = "result";
+  status.textContent = "测试中…";
+  try {
+    const r = await api("/api/models/test", {
+      method: "POST",
+      headers: { ...HEADERS, "Content-Type": "application/json" },
+      body: JSON.stringify({ block: blockName(kind), provider, api_key: key, model }),
+    });
+    status.className = "result " + (r.ok ? "ok" : "bad");
+    status.textContent = r.message;
+  } catch (e) {
+    status.className = "result bad";
+    status.textContent = e.message;
+  }
+}
+
+async function saveModels() {
+  const body = { llm: collectBlock("llm"), embedding: collectBlock("emb") };
+  try {
+    const r = await api("/api/models/save", {
+      method: "POST",
+      headers: { ...HEADERS, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    updateChip(r.current);
+    askForModels(r.current);
+    $("model-modal").style.display = "none";
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+function collectBlock(kind) {
+  const isChat = kind === "llm";
+  return {
+    provider: $(isChat ? "llm-provider" : "emb-provider").value,
+    api_key: $(isChat ? "llm-key" : "emb-key").value,
+    model: $(isChat ? "llm-model" : "emb-model").value,
+  };
+}
+
+let taxItems = [];
+
+async function loadTaxonomy() {
+  try {
+    const r = await api("/api/taxonomy");
+    if (r.items && r.items.length) {
+      taxItems = r.items;
+      renderTaxonomy();
+    }
+  } catch (_) {}
+}
+
+function updateTaxHint() {
+  // 18 mirrors MAX_FOLDERS in classify.py: past that the folder list itself
+  // is the problem, so a saved taxonomy above it means something went wrong.
+  const base = taxItems.length > 18
+    ? `${taxItems.length} 个 · 超过 18 个，建议合并`
+    : `${taxItems.length} 个分类`;
+  $("tax-hint").textContent = base;
+}
+
+// The folder name. The domain is stored next to the item, never typed by the
+// model, so the separator is always the same one.
+function displayName(item) {
+  return item.group ? `${item.group} · ${item.name}` : item.name;
+}
+
+function countOfCategory(name) {
+  if (!planData) return "";
+  const hit = (planData.targets || []).find((t) => t.name === name);
+  return hit === undefined ? "" : hit.count;
+}
+
+// Which categories are open, so a save can rebuild the list without
+// collapsing everything the user had just opened.
+const openTax = new Set();
+
+function renderTaxonomy() {
+  const host = $("tax-list");
+  host.textContent = "";
+
+  let lastGroup = null;
+  taxItems.forEach((item, index) => {
+    const group = item.group || "";
+    if (group && group !== lastGroup) {
+      const head = document.createElement("div");
+      head.className = "tax-group";
+      head.textContent = group;
+      host.appendChild(head);
+    }
+    lastGroup = group;
+
+    const full = displayName(item);
+    const row = document.createElement("div");
+    row.className = "tax-row";
+
+    const count = document.createElement("span");
+    count.className = "cnt";
+    const num = countOfCategory(full);
+    count.textContent = num === "" ? "" : num;
+
+    const del = document.createElement("button");
+    del.className = "del";
+    del.textContent = "×";
+    del.title = "删除这个分类";
+    del.onclick = (event) => {
+      event.stopPropagation();
+      const removed = countOfCategory(full);
+      const next = taxItems.filter((_, i) => i !== index);
+      if (!next.length) {
+        showTaxError("至少需要保留一个分类");
+        return;
+      }
+      openTax.delete(full);
+      persistTaxonomy(next)
+        .then(() => {
+          // Nothing is dropped: deleting a category parks its items.
+          if (removed) {
+            showTaxNote(
+              `「${full}」中的 ${removed} 条内容已归入「存疑」。` +
+              "如需重新分配，请点击「换一换」后再次归类。",
+              true
+            );
+          }
+        })
+        .catch((err) => showTaxError(err.message));
+    };
+
+    const name = document.createElement("span");
+    name.className = "nm-text";
+    name.textContent = item.name || "（未命名）";
+
+    const def = document.createElement("span");
+    def.className = "def-text";
+    def.textContent = item.summary || item.definition || "未填写定义";
+
+    row.append(name, def, count, del);
+    row.onclick = () =>
+      toggleSub(row, `/api/plan/items?target=${encodeURIComponent(full)}`, full);
+    if (openTax.has(full)) {
+      row.classList.add("open");
+    }
+    host.appendChild(row);
+
+    if (openTax.has(full)) {
+      toggleSub(row, `/api/plan/items?target=${encodeURIComponent(full)}`, full);
+    }
+  });
+
+  const parked = planData && planData.parking;
+  if (parked && parked.count) {
+    const row = document.createElement("div");
+    row.className = "tax-row parking";
+
+    const name = document.createElement("span");
+    name.className = "nm-text";
+    name.textContent = parked.name;
+
+    const def = document.createElement("span");
+    def.className = "def-text";
+    def.textContent = "置信度不足，未归入任何分类";
+
+    const count = document.createElement("span");
+    count.className = "cnt";
+    count.textContent = parked.count;
+
+    const pad = document.createElement("span");
+    row.append(name, def, count, pad);
+    row.onclick = () =>
+      toggleSub(row, `/api/plan/items?target=${encodeURIComponent(parked.name)}`, parked.name);
+    if (openTax.has(parked.name)) {
+      row.classList.add("open");
+      toggleSub(row, `/api/plan/items?target=${encodeURIComponent(parked.name)}`, parked.name);
+    }
+    $("tax-list").appendChild(row);
+  }
+
+  $("tax-empty").style.display = "none";
+  $("tax-list").style.display = "block";
+  $("tax-actions").style.display = "flex";
+  updateTaxHint();
+}
+
+// The group count is the person's call; the prompt only carries it, and the
+// choice is remembered locally so a reload does not reset the slider.
+// These four functions were once removed by a refactor while their call sites
+// stayed: the ReferenceError below threw at load time and took every button
+// after it with it. Keep them next to the code that uses them.
+const GROUPS_KEY = "cid-larder-groups";
+const GROUPS_HINT = 20;
+
+function groupCount() {
+  const input = $("tax-count");
+  const value = input ? Number(input.value) : 15;
+  return Number.isFinite(value)
+    ? Math.min(50, Math.max(1, Math.round(value)))
+    : 15;
+}
+
+function paintGroupCount() {
+  if (!$("tax-count-value") || !$("tax-count-warn")) return;
+  const count = groupCount();
+  $("tax-count-value").textContent = String(count);
+  // A hint, not an error: 20 is a habit, not a limit.
+  $("tax-count-warn").style.display = count > GROUPS_HINT ? "block" : "none";
+}
+
+function rememberGroupCount() {
+  paintGroupCount();
+  try {
+    localStorage.setItem(GROUPS_KEY, String(groupCount()));
+  } catch (_) {}
+}
+
+function restoreGroupCount() {
+  try {
+    const saved = Number(localStorage.getItem(GROUPS_KEY));
+    if (saved >= 1 && saved <= 50) $("tax-count").value = String(saved);
+  } catch (_) {}
+  paintGroupCount();
+}
+
+async function suggestTaxonomy() {
+  $("tax-err").style.display = "none";
+  $("btn-suggest").disabled = true;
+  $("btn-suggest").textContent = "生成中…";
+
+  const resuggest = $("btn-resuggest");
+  resuggest.disabled = true;
+  resuggest.classList.add("busy");
+
+  $("tax-progress").textContent = "";
+  $("tax-progress").style.display = "none";
+
+  try {
+    const wanted = groupCount();
+    const r = await postJson("/api/taxonomy/suggest", { count: wanted });
+    taxItems = r.items || [];
+    renderTaxonomy();
+    $("plan-hint").textContent =
+      taxItems.length === wanted
+        ? `已生成 ${taxItems.length} 个分类。如需调整可点击「换一换」；确认后点击「开始归类」。`
+        : `已生成 ${taxItems.length} 个分类（目标为 ${wanted} 个）。如需调整可点击「换一换」。`;
+    refreshUsage();
+  } catch (e) {
+    showTaxError(e.message);
+    $("tax-progress").style.display = "none";
+  } finally {
+    $("btn-suggest").disabled = false;
+    $("btn-suggest").textContent = "生成分类建议";
+    resuggest.disabled = false;
+    resuggest.classList.remove("busy");
+  }
+}
+
+// The only writer for the taxonomy. Suggestions arrive already saved; deleting
+// a category writes immediately, because there is no save button to wait for.
+async function persistTaxonomy(items) {
+  const r = await postJson("/api/taxonomy/save", { items });
+  taxItems = r.items || items;
+  renderTaxonomy();
+  if (r.moved) await loadPlan();
+  return r;
+}
+
+function showTaxNote(text, warn = false) {
+  const el = $("tax-progress");
+  el.textContent = text;
+  el.className = warn ? "muted-note warn-note" : "muted-note";
+  el.style.display = "block";
+}
+
+function showTaxError(msg) {
+  const el = $("tax-err");
+  el.textContent = msg;
+  el.style.display = "block";
+}
+
+async function downloadBackup() {
+  const data = await api("/api/backup");
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
+  const name = `cid-larder-backup-${stamp}.json`;
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+  return {
+    name,
+    counts: data.counts || {},
+    moved: (data.progress || {}).moved || 0,
+  };
+}
+
+// The file worth restoring from is the one taken before anything moved.
+let pristineBackup = null;
+
+function showPlanNote(text) {
+  const note = $("plan-note");
+  note.textContent = text;
+  note.style.display = text ? "block" : "none";
+}
+
+async function backupOnly() {
+  const button = $("btn-backup");
+  button.disabled = true;
+  button.textContent = "备份中…";
+  showPlanNote("");
+  try {
+    const r = await downloadBackup();
+    if (!r.moved) pristineBackup = r.name;
+    showPlanNote(`已导出 ${r.name}（${r.counts.items} 条内容 / ${r.counts.containers} 个容器）`);
+  } catch (e) {
+    showPlanNote(`备份失败：${e.message}`);
+  } finally {
+    button.disabled = false;
+    button.textContent = "备份现状";
+  }
+}
+
+async function openExecute() {
+  const button = $("btn-execute");
+  button.disabled = true;
+  button.textContent = "备份中…";
+  showPlanNote("");
+
+  try {
+    // Back up first, always: the dialog opens only after the export has been
+    // fetched and handed to the browser as a download. Whether the browser
+    // actually wrote it to disk is more than a page can know.
+    const r = await downloadBackup();
+    if (!r.moved) pristineBackup = r.name;
+    $("exec-file").textContent = r.name;
+    const done = (planData && planData.moved) || 0;
+    $("exec-note").textContent = done
+      ? `注意：该文件反映的是执行后的状态（已移动 ${done} 条）。如需恢复，请使用${
+          pristineBackup ? ` ${pristineBackup}` : "第一次执行前那份文件"
+        }。`
+      : "如移动结果有误，只能依据该文件手动恢复。";
+    // On a resume these numbers are what is left, not the whole plan.
+    const left = planData ? Math.max(planData.total - done, 0) : 0;
+    const activeCount = planData
+      ? planData.targets.filter((t) => (done ? t.remaining : t.count) > 0).length
+      : 0;
+    const parkedLeft = planData && planData.parking
+      ? (done ? planData.parking.remaining : planData.parking.count)
+      : 0;
+    $("exec-summary-line").textContent = planData
+      ? `将把 ${left} 条内容归入 ${activeCount} 个分类` +
+        (parkedLeft ? `，其中 ${parkedLeft} 条进「存疑」。` : "。")
+      : "";
+    $("exec-modal").style.display = "flex";
+  } catch (e) {
+    showPlanNote(`备份失败，操作已中止：${e.message}`);
+  } finally {
+    button.disabled = false;
+    button.textContent = execLabel();
+  }
+}
+
+let execTimer = null;
+
+async function confirmExecute() {
+  const button = $("exec-confirm");
+  button.disabled = true;
+  button.textContent = "执行中…";
+  try {
+    await api("/api/execute", { method: "POST" });
+    $("exec-modal").style.display = "none";
+    pollExecute();
+  } catch (e) {
+    $("exec-modal").style.display = "none";
+    showPlanNote(e.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = "确认执行";
+  }
+}
+
+function pollExecute() {
+  if (execTimer) clearInterval(execTimer);
+  $("btn-execute").disabled = true;
+  $("btn-backup").disabled = true;
+  $("btn-collect").disabled = true;
+  showPlanNote("执行中，正在移动…");
+  showEmptyCandidates([]);
+  showEmptyResult("");
+  showBar(0, 0, "准备中…");
+
+  execTimer = setInterval(async () => {
+    let s;
+    try {
+      s = await api("/api/collect/status");
+    } catch (_) {
+      return;
+    }
+
+    if (s.running) {
+      showPlanNote(s.note ? `执行中 · ${s.note}` : "执行中…");
+      showBar(
+        s.done || 0,
+        s.total || 0,
+        s.total ? `第 ${s.done || 0}/${s.total} 批` : "准备中…"
+      );
+      return;
+    }
+
+    clearInterval(execTimer);
+    execTimer = null;
+    hideBar();
+    $("btn-execute").disabled = false;
+    $("btn-backup").disabled = false;
+    $("btn-collect").disabled = false;
+
+    if (s.error) {
+      const sum = s.summary || {};
+      const bits = [`执行中断：${s.error}`];
+      if (sum.moved !== undefined) {
+        bits.push(`已移动 ${sum.moved} 条，还剩 ${sum.remaining} 条`);
+        bits.push("点击「继续执行」可从剩余条目继续，已完成的不会重复");
+      }
+      showPlanNote(bits.join(" · "));
+      // The counts and the button label both changed with the last batch.
+      await loadPlan();
+      return;
+    }
+
+    const sum = s.summary || {};
+    if (sum.moved === undefined) {
+      showPlanNote("执行结束");
+      return;
+    }
+
+    const bits = [`已移动 ${sum.moved} 条（${sum.batches} 批）`];
+    if ((sum.created || []).length) bits.push(`新建 ${sum.created.length} 个新收藏夹`);
+    if ((sum.reused || []).length) bits.push(`沿用 ${sum.reused.length} 个已有收藏夹`);
+    if (sum.unusable) bits.push(`${sum.unusable} 条无法移动`);
+    if ((sum.empty || []).length) bits.push(`${sum.empty.length} 个收藏夹已清空`);
+
+    // The local tables still describe the pre-move layout. Say so instead of
+    // silently showing numbers that no longer match the account.
+    bits.push("本地状态已过期，重新采集后可刷新");
+    showPlanNote(bits.join(" · "));
+    showEmptyCandidates(sum.empty || []);
+    await loadPlan();
+    scheduleEmptyModal();
+  }, 800);
+}
+
+// Folders a run emptied. Deleting them is irreversible, so the page lists
+// them and waits: nothing is removed without a click.
+let emptyCandidates = [];
+
+// The folders a run leaves behind are the next thing to decide about, so the
+// dialog comes to the user instead of waiting to be found. It waits a beat so
+// the result is on screen first and the dialog does not land under a click.
+let emptyTimer = null;
+
+function cancelEmptyModal() {
+  if (emptyTimer) {
+    clearTimeout(emptyTimer);
+    emptyTimer = null;
+  }
+}
+
+function scheduleEmptyModal() {
+  cancelEmptyModal();
+  const page = document.querySelector(".page.on");
+  if (!emptyCandidates.length || !page || page.dataset.page !== "execute") return;
+  emptyTimer = setTimeout(() => {
+    emptyTimer = null;
+    if (emptyCandidates.length) openEmptyModal();
+  }, 600);
+}
+
+// What happened to the folders that were just deleted. Kept off plan-note so
+// the run's own summary is still there to read afterwards.
+function showEmptyResult(text) {
+  const el = $("empty-result");
+  el.textContent = text || "";
+  el.style.display = text ? "block" : "none";
+}
+
+function showEmptyCandidates(list) {
+  emptyCandidates = list || [];
+  cancelEmptyModal();
+  const box = $("exec-empty");
+  if (!emptyCandidates.length) {
+    box.style.display = "none";
+    $("empty-modal").style.display = "none";
+    return;
+  }
+  // No sentence here: the run's summary one line up already says how many
+  // folders it emptied, and the button says how many are left to deal with.
+  $("btn-open-empty").textContent = `查看并删除空收藏夹（${emptyCandidates.length}）`;
+  box.style.display = "block";
+}
+
+// Same rows as the folder list on the arrange page: tick what should go.
+function openEmptyModal() {
+  cancelEmptyModal();
+  const host = $("empty-list");
+  host.textContent = "";
+  $("empty-err").style.display = "none";
+  $("empty-confirm").textContent = "删除所选";
+  emptyCandidates.forEach((folder) => {
+    const row = document.createElement("label");
+    row.className = "item-row lib-row pick-row";
+
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.className = "pick";
+    box.checked = true;
+    box.dataset.id = String(folder.id);
+
+    const name = document.createElement("span");
+    name.className = "nm";
+    name.textContent = folder.name || String(folder.id);
+
+    const tag = document.createElement("span");
+    tag.className = "ct";
+    tag.textContent = "已清空";
+
+    row.append(box, name, tag);
+    host.appendChild(row);
+  });
+  $("empty-modal").style.display = "flex";
+}
+
+function showBar(done, total, text) {
+  $("exec-progress").style.display = "block";
+  const pct = total ? Math.min(100, Math.round((done / total) * 100)) : 0;
+  $("exec-bar").style.width = `${pct}%`;
+  $("exec-bar-text").textContent = text || "";
+}
+
+function hideBar() {
+  $("exec-progress").style.display = "none";
+  $("exec-bar").style.width = "0%";
+  $("exec-bar-text").textContent = "";
+}
+
+// The dialog's own bar. The page one sits behind the scrim, where nobody can
+// see it, so deleting has to report inside the dialog it was started from.
+function emptyBar(done, total, text) {
+  $("empty-progress").style.display = "block";
+  const pct = total ? Math.min(100, Math.round((done / total) * 100)) : 0;
+  $("empty-bar").style.width = `${pct}%`;
+  $("empty-bar-text").textContent = text || "";
+}
+
+function hideEmptyBar() {
+  $("empty-progress").style.display = "none";
+  $("empty-bar").style.width = "0%";
+  $("empty-bar-text").textContent = "";
+}
+
+async function removeEmpty() {
+  const picks = [...document.querySelectorAll("#empty-list .pick:checked")];
+  const err = $("empty-err");
+  err.style.display = "none";
+  if (!picks.length) {
+    err.textContent = "没有勾选任何收藏夹。";
+    err.style.display = "block";
+    return;
+  }
+  const ids = picks.map((el) => Number(el.dataset.id));
+  const button = $("empty-confirm");
+  const cancel = $("empty-cancel");
+  const close = $("empty-close");
+  const boxes = [...document.querySelectorAll("#empty-list .pick")];
+
+  // While this runs the dialog is the only progress report, so it may not be
+  // dismissed: closing it would hide the work that is still going on.
+  button.disabled = true;
+  cancel.disabled = true;
+  close.disabled = true;
+  boxes.forEach((el) => { el.disabled = true; });
+  button.textContent = "删除中…";
+
+  let removed = 0;
+  const gone = new Set();
+  const skipped = [];
+  emptyBar(0, ids.length, `正在删除 0/${ids.length}`);
+  for (let i = 0; i < ids.length; i += 1) {
+    try {
+      // One request per folder: a single batch would give the bar one number
+      // for everything, and one failure would lose the count of what went.
+      const r = await postJson("/api/folders/remove", { ids: [ids[i]] });
+      (r.removed || []).forEach((f) => gone.add(Number(f.id)));
+      removed += (r.removed || []).length;
+      (r.skipped || []).forEach((s) => skipped.push(s));
+    } catch (e) {
+      skipped.push({ id: ids[i], reason: e.message });
+    }
+    emptyBar(i + 1, ids.length, `正在删除 ${i + 1}/${ids.length}`);
+  }
+  hideEmptyBar();
+
+  button.disabled = false;
+  cancel.disabled = false;
+  close.disabled = false;
+  boxes.forEach((el) => { el.disabled = false; });
+  button.textContent = "删除所选";
+  $("empty-modal").style.display = "none";
+
+  let text = `已删除 ${removed} 个旧收藏夹`;
+  if (skipped.length) {
+    text +=
+      ` · ${skipped.length} 个未删除：` +
+      skipped.map((s) => `${s.name || s.id}（${s.reason}）`).join("；");
+  }
+  showEmptyResult(text);
+  // Whatever did not go stays on the page, so a failed folder can be retried
+  // without running the whole plan again.
+  showEmptyCandidates(emptyCandidates.filter((f) => !gone.has(Number(f.id))));
+}
+
+async function loadPlan() {
+  try {
+    const r = await api("/api/plan");
+    if (r.plan) renderPlan(r.plan);
+  } catch (_) {}
+}
+
+let planData = null;
+
+function renderPlan(data) {
+  planData = data;
+  $("btn-classify").textContent = "重新归类";
+  $("plan-hint").textContent = (data.pending
+    ? `共 ${data.total} 条 · ${data.pending} 条进「存疑」`
+    : `共 ${data.total} 条 · ${data.targets.length} 个分类`) + " · 下一步：执行";
+  $("nav-arrange").textContent = `${data.targets.length} 类`;
+  $("nav-execute").textContent = "待执行";
+
+  updateExecPanel();
+  updateStepNav();
+  if (taxItems.length) renderTaxonomy();
+}
+
+function execLabel() {
+  return planData && planData.moved ? "继续执行" : "执行";
+}
+
+function updateExecPanel() {
+  if (!planData) {
+    $("exec-summary").textContent = "尚未生成归类结果，请先前往「整理」。";
+    $("exec-count").textContent = "";
+    $("exec-targets").textContent = "";
+    $("btn-execute").disabled = true;
+    return;
+  }
+
+  const done = planData.moved || 0;
+  const left = Math.max(planData.total - done, 0);
+  const per = (t) => (done ? t.remaining : t.count);
+
+  if (left === 0) {
+    $("exec-summary").textContent = "上一轮已全部移动完成，请重新归类后再执行。";
+    $("exec-count").textContent = "";
+    $("exec-targets").textContent = "";
+    $("btn-execute").disabled = true;
+    return;
+  }
+
+  $("btn-execute").disabled = false;
+  $("btn-execute").textContent = execLabel();
+  const active = (planData.targets || []).filter((t) => per(t) > 0);
+  const box = T.container;
+  $("exec-summary").textContent = done
+    ? `已移动 ${done} 条，还剩 ${left} 条待移动（共 ${planData.total} 条），` +
+      `其余归入 ${active.length} 个分类${box}。`
+    : `将移动 ${planData.total} 条内容到 ${active.length} 个分类${box}` +
+      (planData.pending ? `，另有 ${planData.pending} 条归入「存疑」，需人工处理。` : "。");
+  $("exec-count").textContent = done ? `剩 ${left} 条` : `${planData.total} 条`;
+
+  const list = $("exec-targets");
+  list.textContent = "";
+  const rows = (planData.targets || [])
+    .map((t) => [t.name, per(t), false])
+    .filter(([, n]) => n > 0);
+  if (planData.parking && per(planData.parking)) {
+    rows.push([planData.parking.name, per(planData.parking), true]);
+  }
+  rows.forEach(([name, count, parked]) => {
+    const row = document.createElement("div");
+    row.className = "row";
+    const label = document.createElement("span");
+    label.className = "n";
+    label.textContent = parked ? `${name}（不参与分类，暂存于此）` : name;
+    const num = document.createElement("span");
+    num.className = "c";
+    num.textContent = `${count} 条`;
+    row.append(label, num);
+    list.appendChild(row);
+  });
+  if (rows.length) {
+    const note = document.createElement("div");
+    note.className = "note";
+    note.textContent =
+      "同名收藏夹将直接复用，不存在则新建（私密）。不删除、不重命名，也不会移动未列出的内容。";
+    list.appendChild(note);
+  }
+  $("nav-execute").textContent = "可执行";
+}
+
+async function runClassify() {
+  $("plan-err").style.display = "none";
+  $("btn-classify").disabled = true;
+  $("btn-classify").textContent = "归类中…";
+
+  $("plan-progress").textContent = "归类中…";
+  $("plan-progress").className = "muted-note";
+  $("plan-progress").style.display = "block";
+
+  try {
+    const r = await api("/api/classify", { method: "POST" });
+    renderPlan(r);
+    nudgeNext();
+    if (r.scores) {
+      const pct = (v) => `${Math.round(v * 100)}%`;
+      const bits = [`相似度 ${pct(r.scores.min)}–${pct(r.scores.max)}，中位 ${pct(r.scores.median)}`];
+      if (r.pending) {
+        const b = r.parked_breakdown || {};
+        const why = [];
+        if (b.low) why.push(`${b.low} 条相似度过低`);
+        if (b.close) why.push(`${b.close} 条与次选分类过于接近`);
+        bits.push(`存疑 ${r.pending} 条` + (why.length ? `（${why.join("，")}）` : ""));
+      }
+      $("plan-progress").textContent = bits.join(" · ");
+    }
+    refreshUsage();
+  } catch (e) {
+    $("plan-progress").style.display = "none";
+    const el = $("plan-err");
+    el.textContent = e.message;
+    el.style.display = "block";
+  } finally {
+    $("btn-classify").disabled = false;
+    $("btn-classify").textContent = planData ? "重新归类" : "开始归类";
+  }
+}
+
+on("btn-classify", "onclick", runClassify);
+on("btn-backup", "onclick", backupOnly);
+on("btn-execute", "onclick", openExecute);
+on("exec-confirm", "onclick", confirmExecute);
+on("exec-close", "onclick", () => { $("exec-modal").style.display = "none"; });
+on("exec-cancel", "onclick", () => { $("exec-modal").style.display = "none"; });
+on("exec-modal", "onclick", (e) => {
+  if (e.target.id === "exec-modal") e.target.style.display = "none";
+});
+on("tax-count", "oninput", rememberGroupCount);
+restoreGroupCount();
+on("btn-suggest", "onclick", suggestTaxonomy);
+on("btn-resuggest", "onclick", suggestTaxonomy);
+
+on("btn-open-empty", "onclick", openEmptyModal);
+on("empty-close", "onclick", () => { $("empty-modal").style.display = "none"; });
+on("empty-cancel", "onclick", () => { $("empty-modal").style.display = "none"; });
+on("empty-confirm", "onclick", removeEmpty);
+on("empty-modal", "onclick", (e) => {
+  // Clicking the backdrop is the same as 取消, so it is blocked while deleting.
+  if (e.target.id === "empty-modal" && !$("empty-confirm").disabled) {
+    e.target.style.display = "none";
+  }
+});
+on("model-chip", "onclick", () => { $("model-modal").style.display = "flex"; });
+on("model-close", "onclick", () => { $("model-modal").style.display = "none"; });
+on("model-modal", "onclick", (e) => {
+  if (e.target.id === "model-modal") e.target.style.display = "none";
+});
+on("llm-fetch", "onclick", () => fetchModels("llm"));
+on("emb-fetch", "onclick", () => fetchModels("emb"));
+on("llm-test", "onclick", () => testModel("llm"));
+on("emb-test", "onclick", () => testModel("emb"));
+on("model-save", "onclick", saveModels);
+
+document.querySelectorAll("#platform-pick .chip").forEach((btn) => {
+  btn.onclick = () => showView("login");
+});
+on("btn-collect", "onclick", () => startCollect());
+
+on("btn-logout", "onclick", logout);
+boot();
+</script>
+</body>
+</html>

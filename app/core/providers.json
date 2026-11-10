@@ -1,0 +1,73 @@
+{
+  "_note": "Model IDs rot. The arrays below were read back from each vendor's GET /models with a real key, or from their docs where marked. They are dropdown hints, not a contract: click 拉取 to ask the endpoint what this key can call today.",
+  "_captured": "2026-11-05",
+  "deepseek": {
+    "label": "DeepSeek",
+    "base_url": "https://api.deepseek.com",
+    "chat_models": [
+      "deepseek-flash",
+      "deepseek-v4-pro"
+    ],
+    "embedding_models": [],
+    "source": "GET /models (measured)",
+    "note": "Chat only, no embeddings. deepseek-chat and deepseek-reasoner were retired on 2026-07-24."
+  },
+  "zhipu": {
+    "label": "Zhipu GLM",
+    "base_url": "https://open.bigmodel.cn/api/paas/v4",
+    "chat_models": [
+      "glm-5.3",
+      "glm-5.3-flash",
+      "glm-5.3-flashx",
+      "glm-5.2",
+      "glm-5.1",
+      "glm-5",
+      "glm-5-turbo",
+      "glm-4.7",
+      "glm-4.6",
+      "glm-4.5",
+      "glm-4.5-air",
+      "glm-5.3-flashx-legal"
+    ],
+    "embedding_models": [
+      "embedding-3",
+      "embedding-2"
+    ],
+    "source": "GET /models (measured) + docs for embeddings",
+    "note": "The /models route returns chat models only; embedding-3 does not appear in it. Keep the built-in name for vectors."
+  },
+  "openai": {
+    "label": "OpenAI",
+    "base_url": "https://api.openai.com/v1",
+    "chat_models": [],
+    "embedding_models": [],
+    "source": "",
+    "note": "Docs are behind Cloudflare. Fetch the list with your key, or type the model name."
+  },
+  "siliconflow": {
+    "label": "SiliconFlow",
+    "base_url": "https://api.siliconflow.cn/v1",
+    "chat_models": [],
+    "embedding_models": [],
+    "source": "",
+    "note": "Model IDs are host-specific. Fetch the list with your key, or type the model name."
+  },
+  "ollama": {
+    "label": "Ollama (local)",
+    "base_url": "http://127.0.0.1:11434/v1",
+    "chat_models": [],
+    "embedding_models": [
+      "bge-m3"
+    ],
+    "source": "",
+    "note": "Whatever you pulled with `ollama pull`. Fetch lists what is installed locally."
+  },
+  "custom": {
+    "label": "Custom endpoint",
+    "base_url": "",
+    "chat_models": [],
+    "embedding_models": [],
+    "source": "",
+    "note": "Any OpenAI-compatible server. Model name is required."
+  }
+}

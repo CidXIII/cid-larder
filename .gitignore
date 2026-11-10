@@ -1,0 +1,29 @@
+# secrets
+.env
+.env.*
+!.env.example
+cookies.json
+*.cookie
+
+# runtime data
+data/
+*.db
+*.sqlite3
+exports/
+deleted_snapshot.json
+logs/
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# os / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
