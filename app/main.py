@@ -400,11 +400,6 @@ def keep_out(container_id: str, body: KeepOutBody) -> dict:
         ).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="没有这个收藏夹，先采集一次")
-        if (row["name"] or "") == classify.PARKING_NAME:
-            raise HTTPException(
-                status_code=400,
-                detail="「存疑」是停放处，不能剔除；不想要它就让分类别再往里塞",
-            )
 
         changed = store.set_keep_out(conn, container_id, body.excluded)
         dropped = classify.drop_container(conn, container_id) if body.excluded else 0

@@ -2441,7 +2441,8 @@ function updateExecPanel() {
     const note = document.createElement("div");
     note.className = "note";
     note.textContent =
-      "同名收藏夹将直接复用，不存在则新建（私密）。不删除、不重命名，也不会移动未列出的内容。";
+      "同名收藏夹若不归本工具所有，将新建「名称-AI分类」（私密）；" +
+      "不覆盖、不改名，也不会移动未列出的内容。";
     list.appendChild(note);
   }
   $("nav-execute").textContent = "可执行";

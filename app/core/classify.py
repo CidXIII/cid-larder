@@ -420,13 +420,15 @@ def _load_items(conn: sqlite3.Connection, platform: str = "bilibili") -> list[di
                                   AND c.container_id = m.container_id
                  WHERE m.platform = ? AND m.item_kind = ?
                    AND m.item_id = i.item_id
-                   -- the parking folder, and anything the person took out of
-                   -- this run: one membership is enough to leave it alone
-                   AND (c.name = ? OR c.keep_out = 1)
+                   -- Only what the person ticked off. A folder that happens
+                   -- to be called 存疑 is theirs unless they say otherwise:
+                   -- matching on the name would swallow their items without
+                   -- a word, and leave the checkbox saying it takes part.
+                   AND c.keep_out = 1
            )
          ORDER BY i.last_seen DESC
         """,
-        (platform, item_kind, platform, item_kind, PARKING_NAME),
+        (platform, item_kind, platform, item_kind),
     ).fetchall()
 
     items = []
